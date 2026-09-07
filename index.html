@@ -1,0 +1,1265 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Particle Galaxy</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000008;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+      letter-spacing: 3px;
+      background: #000008;
+      z-index: 10;
+      transition: opacity 1.5s ease;
+    }
+  </style>
+</head>
+
+<body>
+
+<div id="loading">ENTERING THE GALAXY...</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+
+  /* =========================================================
+     SETTINGS
+  ========================================================= */
+
+  const PARTICLES = 7500;
+  const BACKGROUND_STARS = 1800;
+
+  // Total animation duration = 120 seconds
+  const TOTAL_TIME = 120;
+
+  const scene = new THREE.Scene();
+
+  scene.background = new THREE.Color(0x000008);
+
+  const camera = new THREE.PerspectiveCamera(
+    60,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    2000
+  );
+
+  camera.position.set(0, 18, 90);
+
+  const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    alpha: false
+  });
+
+  renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio, 2)
+  );
+
+  renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+  );
+
+  document.body.appendChild(renderer.domElement);
+
+
+  /* =========================================================
+     LOADING SCREEN
+  ========================================================= */
+
+  setTimeout(() => {
+    const loading = document.getElementById("loading");
+
+    loading.style.opacity = "0";
+
+    setTimeout(() => {
+      loading.remove();
+    }, 1500);
+
+  }, 1200);
+
+
+  /* =========================================================
+     GALAXY GROUP
+  ========================================================= */
+
+  const galaxyGroup = new THREE.Group();
+
+  scene.add(galaxyGroup);
+
+
+  /* =========================================================
+     PARTICLE ARRAYS
+  ========================================================= */
+
+  const positions = new Float32Array(PARTICLES * 3);
+  const galaxyPositions = new Float32Array(PARTICLES * 3);
+
+  const velocities = new Float32Array(PARTICLES * 3);
+
+  const particleColors = new Float32Array(PARTICLES * 3);
+
+  const randomOffsets = new Float32Array(PARTICLES);
+
+
+  /* =========================================================
+     CREATE REALISTIC SPIRAL GALAXY
+  ========================================================= */
+
+  const arms = 5;
+  const maxRadius = 38;
+
+  for (let i = 0; i < PARTICLES; i++) {
+
+    /*
+      Random starting position in deep space
+    */
+
+    positions[i * 3] =
+      (Math.random() - 0.5) * 180;
+
+    positions[i * 3 + 1] =
+      (Math.random() - 0.5) * 100;
+
+    positions[i * 3 + 2] =
+      (Math.random() - 0.5) * 180;
+
+
+    /*
+      Random galaxy radius
+      More particles toward the center
+    */
+
+    let radius =
+      Math.pow(Math.random(), 1.45) * maxRadius;
+
+    /*
+      Spiral arm selection
+    */
+
+    const arm =
+      Math.floor(Math.random() * arms);
+
+    /*
+      Spiral twisting
+    */
+
+    const baseAngle =
+      (arm / arms) * Math.PI * 2;
+
+    const spiralTwist =
+      radius * 0.24;
+
+    /*
+      Natural irregularity
+    */
+
+    const angle =
+      baseAngle +
+      spiralTwist +
+      (Math.random() - 0.5) *
+      (0.55 + radius * 0.025);
+
+
+    /*
+      Slightly stretched galaxy
+    */
+
+    let x =
+      Math.cos(angle) * radius;
+
+    let z =
+      Math.sin(angle) * radius;
+
+
+    /*
+      Galaxy thickness
+      Center is thicker,
+      outer arms become flatter
+    */
+
+    const thickness =
+      0.8 +
+      (1 - radius / maxRadius) * 4.5;
+
+    let y =
+      (Math.random() - 0.5) * thickness;
+
+
+    /*
+      Add extra diffuse dust
+    */
+
+    if (Math.random() < 0.18) {
+
+      x +=
+        (Math.random() - 0.5) * 5;
+
+      z +=
+        (Math.random() - 0.5) * 5;
+
+      y +=
+        (Math.random() - 0.5) * 3;
+    }
+
+
+    /*
+      Store galaxy target
+    */
+
+    galaxyPositions[i * 3] = x;
+    galaxyPositions[i * 3 + 1] = y;
+    galaxyPositions[i * 3 + 2] = z;
+
+
+    /*
+      Random movement values
+    */
+
+    velocities[i * 3] =
+      (Math.random() - 0.5) * 0.025;
+
+    velocities[i * 3 + 1] =
+      (Math.random() - 0.5) * 0.018;
+
+    velocities[i * 3 + 2] =
+      (Math.random() - 0.5) * 0.025;
+
+    randomOffsets[i] =
+      Math.random() * Math.PI * 2;
+
+
+    /* =======================================================
+       GALAXY COLORS
+    ======================================================= */
+
+    const distanceFromCenter =
+      radius / maxRadius;
+
+    let r, g, b;
+
+    /*
+      Bright warm center
+    */
+
+    if (distanceFromCenter < 0.22) {
+
+      const t =
+        distanceFromCenter / 0.22;
+
+      r = 1.0;
+      g = 0.86 + Math.random() * 0.14;
+      b = 0.65 + Math.random() * 0.35;
+
+    }
+
+    /*
+      Middle region
+    */
+
+    else if (distanceFromCenter < 0.55) {
+
+      const t =
+        (distanceFromCenter - 0.22) / 0.33;
+
+      r = 0.75 + Math.random() * 0.2;
+      g = 0.72 + Math.random() * 0.2;
+      b = 0.95 + Math.random() * 0.05;
+
+    }
+
+    /*
+      Outer blue / violet arms
+    */
+
+    else {
+
+      const purpleChance =
+        Math.random();
+
+      if (purpleChance < 0.5) {
+
+        r = 0.45 + Math.random() * 0.3;
+        g = 0.55 + Math.random() * 0.25;
+        b = 1.0;
+
+      } else {
+
+        r = 0.65 + Math.random() * 0.3;
+        g = 0.45 + Math.random() * 0.25;
+        b = 1.0;
+      }
+    }
+
+    /*
+      Occasional pure white stars
+    */
+
+    if (Math.random() < 0.12) {
+
+      r = 1;
+      g = 1;
+      b = 1;
+    }
+
+    particleColors[i * 3] = r;
+    particleColors[i * 3 + 1] = g;
+    particleColors[i * 3 + 2] = b;
+  }
+
+
+  /* =========================================================
+     MAIN GALAXY PARTICLES
+  ========================================================= */
+
+  const galaxyGeometry =
+    new THREE.BufferGeometry();
+
+  galaxyGeometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(
+      positions,
+      3
+    )
+  );
+
+  galaxyGeometry.setAttribute(
+    "color",
+    new THREE.BufferAttribute(
+      particleColors,
+      3
+    )
+  );
+
+
+  const galaxyMaterial =
+    new THREE.PointsMaterial({
+
+      size: 0.72,
+
+      vertexColors: true,
+
+      transparent: true,
+
+      opacity: 0.95,
+
+      blending:
+        THREE.AdditiveBlending,
+
+      depthWrite: false,
+
+      sizeAttenuation: true
+    });
+
+
+  const galaxyParticles =
+    new THREE.Points(
+      galaxyGeometry,
+      galaxyMaterial
+    );
+
+  galaxyGroup.add(galaxyParticles);
+
+
+  /* =========================================================
+     SOFT PARTICLE GLOW LAYER
+  ========================================================= */
+
+  const glowPositions =
+    new Float32Array(PARTICLES * 3);
+
+  const glowColors =
+    new Float32Array(PARTICLES * 3);
+
+
+  for (let i = 0; i < PARTICLES; i++) {
+
+    glowPositions[i * 3] =
+      positions[i * 3];
+
+    glowPositions[i * 3 + 1] =
+      positions[i * 3 + 1];
+
+    glowPositions[i * 3 + 2] =
+      positions[i * 3 + 2];
+
+    glowColors[i * 3] =
+      particleColors[i * 3];
+
+    glowColors[i * 3 + 1] =
+      particleColors[i * 3 + 1];
+
+    glowColors[i * 3 + 2] =
+      particleColors[i * 3 + 2];
+  }
+
+
+  const glowGeometry =
+    new THREE.BufferGeometry();
+
+  glowGeometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(
+      glowPositions,
+      3
+    )
+  );
+
+  glowGeometry.setAttribute(
+    "color",
+    new THREE.BufferAttribute(
+      glowColors,
+      3
+    )
+  );
+
+
+  const glowMaterial =
+    new THREE.PointsMaterial({
+
+      size: 2.4,
+
+      vertexColors: true,
+
+      transparent: true,
+
+      opacity: 0.13,
+
+      blending:
+        THREE.AdditiveBlending,
+
+      depthWrite: false,
+
+      sizeAttenuation: true
+    });
+
+
+  const glowParticles =
+    new THREE.Points(
+      glowGeometry,
+      glowMaterial
+    );
+
+  galaxyGroup.add(glowParticles);
+
+
+  /* =========================================================
+     BACKGROUND STAR FIELD
+  ========================================================= */
+
+  const starPositions =
+    new Float32Array(
+      BACKGROUND_STARS * 3
+    );
+
+  const starSizes =
+    new Float32Array(
+      BACKGROUND_STARS
+    );
+
+
+  for (let i = 0; i < BACKGROUND_STARS; i++) {
+
+    starPositions[i * 3] =
+      (Math.random() - 0.5) * 500;
+
+    starPositions[i * 3 + 1] =
+      (Math.random() - 0.5) * 300;
+
+    starPositions[i * 3 + 2] =
+      (Math.random() - 0.5) * 500;
+
+    starSizes[i] =
+      0.2 + Math.random() * 0.8;
+  }
+
+
+  const starsGeometry =
+    new THREE.BufferGeometry();
+
+  starsGeometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(
+      starPositions,
+      3
+    )
+  );
+
+
+  const starsMaterial =
+    new THREE.PointsMaterial({
+
+      color: 0xffffff,
+
+      size: 0.55,
+
+      transparent: true,
+
+      opacity: 0.72,
+
+      blending:
+        THREE.AdditiveBlending,
+
+      depthWrite: false,
+
+      sizeAttenuation: true
+    });
+
+
+  const stars =
+    new THREE.Points(
+      starsGeometry,
+      starsMaterial
+    );
+
+  scene.add(stars);
+
+
+  /* =========================================================
+     GALAXY CORE GLOW
+  ========================================================= */
+
+  const coreCanvas =
+    document.createElement("canvas");
+
+  coreCanvas.width = 256;
+  coreCanvas.height = 256;
+
+  const coreContext =
+    coreCanvas.getContext("2d");
+
+
+  const gradient =
+    coreContext.createRadialGradient(
+      128,
+      128,
+      0,
+      128,
+      128,
+      128
+    );
+
+  gradient.addColorStop(
+    0,
+    "rgba(255,255,235,1)"
+  );
+
+  gradient.addColorStop(
+    0.12,
+    "rgba(255,245,190,0.9)"
+  );
+
+  gradient.addColorStop(
+    0.35,
+    "rgba(180,210,255,0.35)"
+  );
+
+  gradient.addColorStop(
+    0.7,
+    "rgba(100,120,255,0.08)"
+  );
+
+  gradient.addColorStop(
+    1,
+    "rgba(0,0,0,0)"
+  );
+
+
+  coreContext.fillStyle = gradient;
+
+  coreContext.fillRect(
+    0,
+    0,
+    256,
+    256
+  );
+
+
+  const coreTexture =
+    new THREE.CanvasTexture(
+      coreCanvas
+    );
+
+
+  const coreMaterial =
+    new THREE.SpriteMaterial({
+
+      map: coreTexture,
+
+      transparent: true,
+
+      blending:
+        THREE.AdditiveBlending,
+
+      depthWrite: false,
+
+      opacity: 0
+    });
+
+
+  const core =
+    new THREE.Sprite(
+      coreMaterial
+    );
+
+  core.scale.set(
+    35,
+    35,
+    1
+  );
+
+  galaxyGroup.add(core);
+
+
+  /* =========================================================
+     ANIMATION HELPERS
+  ========================================================= */
+
+  function smoothstep(t) {
+
+    t = THREE.MathUtils.clamp(
+      t,
+      0,
+      1
+    );
+
+    return t * t * (3 - 2 * t);
+  }
+
+
+  function easeInOut(t) {
+
+    return (
+      t < 0.5
+        ? 2 * t * t
+        : 1 -
+          Math.pow(
+            -2 * t + 2,
+            2
+          ) / 2
+    );
+  }
+
+
+  function clamp01(t) {
+
+    return Math.max(
+      0,
+      Math.min(1, t)
+    );
+  }
+
+
+  /* =========================================================
+     ANIMATION CLOCK
+  ========================================================= */
+
+  const clock =
+    new THREE.Clock();
+
+
+  let elapsed =
+    0;
+
+
+  /* =========================================================
+     MAIN ANIMATION
+  ========================================================= */
+
+  function animate() {
+
+    requestAnimationFrame(
+      animate
+    );
+
+
+    const delta =
+      clock.getDelta();
+
+    elapsed += delta;
+
+
+    /*
+      Keep the animation inside
+      a perfect 120 second loop
+    */
+
+    const time =
+      elapsed % TOTAL_TIME;
+
+
+    /* =======================================================
+       PHASE 1
+       0 - 25 SEC
+       FREE SPACE
+    ======================================================= */
+
+    if (time < 25) {
+
+      const p =
+        time / 25;
+
+      const driftAmount =
+        1.0;
+
+      for (let i = 0; i < PARTICLES; i++) {
+
+        const index = i * 3;
+
+        /*
+          Gentle movement through space
+        */
+
+        positions[index] +=
+          velocities[index] *
+          driftAmount;
+
+        positions[index + 1] +=
+          velocities[index + 1] *
+          driftAmount;
+
+        positions[index + 2] +=
+          velocities[index + 2] *
+          driftAmount;
+
+
+        /*
+          Slowly prepare particles
+          toward galaxy formation
+        */
+
+        const formation =
+          smoothstep(
+            clamp01(
+              (p - 0.45) / 0.55
+            )
+          );
+
+
+        positions[index] =
+          THREE.MathUtils.lerp(
+            positions[index],
+            galaxyPositions[index],
+            formation * 0.025
+          );
+
+        positions[index + 1] =
+          THREE.MathUtils.lerp(
+            positions[index + 1],
+            galaxyPositions[index + 1],
+            formation * 0.025
+          );
+
+        positions[index + 2] =
+          THREE.MathUtils.lerp(
+            positions[index + 2],
+            galaxyPositions[index + 2],
+            formation * 0.025
+          );
+      }
+
+
+      galaxyMaterial.opacity =
+        0.78;
+
+      glowMaterial.opacity =
+        0.09;
+
+      coreMaterial.opacity =
+        0;
+
+    }
+
+
+    /* =======================================================
+       PHASE 2
+       25 - 60 SEC
+       GALAXY FORMATION
+    ======================================================= */
+
+    else if (time < 60) {
+
+      const p =
+        (time - 25) / 35;
+
+      const formation =
+        easeInOut(p);
+
+
+      for (let i = 0; i < PARTICLES; i++) {
+
+        const index = i * 3;
+
+        /*
+          Slight wave movement
+        */
+
+        const wave =
+          Math.sin(
+            elapsed * 0.5 +
+            randomOffsets[i]
+          ) * 0.025;
+
+
+        positions[index] =
+          THREE.MathUtils.lerp(
+            positions[index],
+            galaxyPositions[index] +
+              wave,
+            0.045 + formation * 0.025
+          );
+
+        positions[index + 1] =
+          THREE.MathUtils.lerp(
+            positions[index + 1],
+            galaxyPositions[index + 1],
+            0.045 + formation * 0.025
+          );
+
+        positions[index + 2] =
+          THREE.MathUtils.lerp(
+            positions[index + 2],
+            galaxyPositions[index + 2] +
+              wave,
+            0.045 + formation * 0.025
+          );
+      }
+
+
+      galaxyMaterial.opacity =
+        0.65 +
+        formation * 0.32;
+
+      glowMaterial.opacity =
+        0.08 +
+        formation * 0.09;
+
+      coreMaterial.opacity =
+        formation * 0.72;
+
+
+      /*
+        Galaxy slowly begins rotating
+      */
+
+      galaxyGroup.rotation.y +=
+        0.0015 * formation;
+    }
+
+
+    /* =======================================================
+       PHASE 3
+       60 - 95 SEC
+       FULL GALAXY + 360 DEG ROTATION
+    ======================================================= */
+
+    else if (time < 95) {
+
+      const p =
+        (time - 60) / 35;
+
+
+      /*
+        EXACT 360 DEGREE ROTATION
+      */
+
+      galaxyGroup.rotation.y =
+        p * Math.PI * 2;
+
+
+      /*
+        Very subtle vertical motion
+      */
+
+      galaxyGroup.rotation.x =
+        Math.sin(
+          p * Math.PI * 2
+        ) * 0.045;
+
+
+      galaxyGroup.rotation.z =
+        Math.cos(
+          p * Math.PI * 2
+        ) * 0.025;
+
+
+      /*
+        Keep particles alive
+      */
+
+      for (let i = 0; i < PARTICLES; i++) {
+
+        const index = i * 3;
+
+        const breathing =
+          Math.sin(
+            elapsed * 0.7 +
+            randomOffsets[i]
+          ) * 0.035;
+
+
+        positions[index] =
+          galaxyPositions[index] +
+          breathing;
+
+        positions[index + 1] =
+          galaxyPositions[index + 1] +
+          breathing * 0.3;
+
+        positions[index + 2] =
+          galaxyPositions[index + 2] +
+          breathing;
+      }
+
+
+      galaxyMaterial.opacity =
+        0.97;
+
+      glowMaterial.opacity =
+        0.16;
+
+      coreMaterial.opacity =
+        0.78;
+    }
+
+
+    /* =======================================================
+       PHASE 4
+       95 - 110 SEC
+       GALAXY DISSOLVES
+    ======================================================= */
+
+    else if (time < 110) {
+
+      const p =
+        (time - 95) / 15;
+
+      const dissolve =
+        easeInOut(p);
+
+
+      galaxyGroup.rotation.y =
+        Math.PI * 2 +
+        dissolve * 0.35;
+
+
+      for (let i = 0; i < PARTICLES; i++) {
+
+        const index = i * 3;
+
+        const angle =
+          Math.atan2(
+            galaxyPositions[index + 2],
+            galaxyPositions[index]
+          );
+
+
+        const radius =
+          Math.sqrt(
+            galaxyPositions[index] *
+            galaxyPositions[index] +
+            galaxyPositions[index + 2] *
+            galaxyPositions[index + 2]
+          );
+
+
+        /*
+          Push particles outward
+        */
+
+        const outward =
+          dissolve *
+          (radius * 0.85 + 12);
+
+
+        const targetX =
+          galaxyPositions[index] +
+          Math.cos(angle) *
+          outward;
+
+        const targetY =
+          galaxyPositions[index + 1] +
+          (Math.random() - 0.5) *
+          dissolve *
+          12;
+
+        const targetZ =
+          galaxyPositions[index + 2] +
+          Math.sin(angle) *
+          outward;
+
+
+        positions[index] =
+          THREE.MathUtils.lerp(
+            galaxyPositions[index],
+            targetX,
+            dissolve
+          );
+
+        positions[index + 1] =
+          THREE.MathUtils.lerp(
+            galaxyPositions[index + 1],
+            targetY,
+            dissolve
+          );
+
+        positions[index + 2] =
+          THREE.MathUtils.lerp(
+            galaxyPositions[index + 2],
+            targetZ,
+            dissolve
+          );
+      }
+
+
+      galaxyMaterial.opacity =
+        0.95 *
+        (1 - dissolve);
+
+      glowMaterial.opacity =
+        0.15 *
+        (1 - dissolve);
+
+      coreMaterial.opacity =
+        0.75 *
+        (1 - dissolve);
+    }
+
+
+    /* =======================================================
+       PHASE 5
+       110 - 120 SEC
+       RETURN TO DEEP SPACE
+    ======================================================= */
+
+    else {
+
+      const p =
+        (time - 110) / 10;
+
+      const drift =
+        easeInOut(p);
+
+
+      for (let i = 0; i < PARTICLES; i++) {
+
+        const index = i * 3;
+
+
+        /*
+          Final scattered-space positions
+        */
+
+        const spaceX =
+          galaxyPositions[index] *
+          (2.5 + drift * 2.5);
+
+        const spaceY =
+          galaxyPositions[index + 1] *
+          (2.5 + drift * 2.5);
+
+        const spaceZ =
+          galaxyPositions[index + 2] *
+          (2.5 + drift * 2.5);
+
+
+        positions[index] =
+          THREE.MathUtils.lerp(
+            positions[index],
+            spaceX,
+            0.025
+          );
+
+        positions[index + 1] =
+          THREE.MathUtils.lerp(
+            positions[index + 1],
+            spaceY,
+            0.025
+          );
+
+        positions[index + 2] =
+          THREE.MathUtils.lerp(
+            positions[index + 2],
+            spaceZ,
+            0.025
+          );
+      }
+
+
+      galaxyMaterial.opacity =
+        0.35 *
+        (1 - drift);
+
+      glowMaterial.opacity =
+        0.06 *
+        (1 - drift);
+
+      coreMaterial.opacity =
+        0.25 *
+        (1 - drift);
+
+
+      /*
+        Slowly reset rotation
+        for the next loop
+      */
+
+      galaxyGroup.rotation.x =
+        THREE.MathUtils.lerp(
+          galaxyGroup.rotation.x,
+          0,
+          0.02
+        );
+
+      galaxyGroup.rotation.z =
+        THREE.MathUtils.lerp(
+          galaxyGroup.rotation.z,
+          0,
+          0.02
+        );
+
+      galaxyGroup.rotation.y =
+        THREE.MathUtils.lerp(
+          galaxyGroup.rotation.y,
+          0,
+          0.008
+        );
+    }
+
+
+    /* =======================================================
+       UPDATE GPU PARTICLES
+    ======================================================= */
+
+    galaxyGeometry.attributes.position.needsUpdate =
+      true;
+
+
+    /*
+      Glow layer follows main particles
+    */
+
+    for (let i = 0; i < PARTICLES; i++) {
+
+      const index = i * 3;
+
+      glowPositions[index] =
+        positions[index];
+
+      glowPositions[index + 1] =
+        positions[index + 1];
+
+      glowPositions[index + 2] =
+        positions[index + 2];
+    }
+
+
+    glowGeometry.attributes.position.needsUpdate =
+      true;
+
+
+    /* =======================================================
+       BACKGROUND STAR MOVEMENT
+    ======================================================= */
+
+    stars.rotation.y +=
+      0.00008;
+
+    stars.rotation.x +=
+      0.000015;
+
+
+    /*
+      Subtle camera movement
+    */
+
+    camera.position.x =
+      Math.sin(elapsed * 0.08) * 3;
+
+    camera.position.y =
+      18 +
+      Math.sin(elapsed * 0.055) * 2;
+
+    camera.position.z =
+      90 +
+      Math.cos(elapsed * 0.07) * 4;
+
+
+    camera.lookAt(
+      0,
+      0,
+      0
+    );
+
+
+    /* =======================================================
+       RENDER
+    ======================================================= */
+
+    renderer.render(
+      scene,
+      camera
+    );
+  }
+
+
+  animate();
+
+
+  /* =========================================================
+     RESPONSIVE SCREEN
+  ========================================================= */
+
+  window.addEventListener(
+    "resize",
+    () => {
+
+      camera.aspect =
+        window.innerWidth /
+        window.innerHeight;
+
+      camera.updateProjectionMatrix();
+
+      renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+      );
+
+    }
+  );
+
+</script>
+
+</body>
+</html>
+```
